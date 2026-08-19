@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"gopkg.in/h2non/gentleman.v2"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,31 +11,17 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/h2non/gentleman.v2"
 )
 
 func TestWebhook(t *testing.T) {
-	// тип http.HandlerFunc реализует интерфейс http.Handler
-	// это поможет передать хендлер тестовому серверу
 	handler := http.HandlerFunc(webhook)
-	// запускаем тестовый сервер, будет выбран первый свободный порт
 	srv := httptest.NewServer(handler)
-	// останавливаем сервер после завершения теста
 	defer srv.Close()
 
-	// ожидаемое содержимое тела ответа при успешном запросе
-	successBody := `{
-        "response": {
-            "text": "Извините, я пока ничего не умею"
-        },
-        "version": "1.0"
-    }`
-
-	// описываем набор данных: метод запроса, ожидаемый код ответа, ожидаемое тело
 	testCases := []struct {
-		name         string // добавляем название тестов
+		name         string
 		method       string
-		body         string // добавляем тело запроса в табличные тесты
+		body         string
 		expectedCode int
 		expectedBody string
 	}{
@@ -72,9 +59,10 @@ func TestWebhook(t *testing.T) {
 		{
 			name:         "method_post_success",
 			method:       http.MethodPost,
-			body:         `{"request": {"type": "SimpleUtterance", "command": "sudo do something"}, "version": "1.0"}`,
+			body:         `{"request": {"type": "SimpleUtterance", "command": "sudo do something"}, "session": {"new": true}, "version": "1.0"}`,
 			expectedCode: http.StatusOK,
-			expectedBody: successBody,
+			// ответ стал сложнее, поэтому сравниваем его с шаблоном вместо точной строки
+			expectedBody: `Точное время .* часов, .* минут. Для вас нет новых сообщений.`,
 		},
 	}
 
@@ -98,7 +86,7 @@ func TestWebhook(t *testing.T) {
 			assert.Equal(t, tc.expectedCode, response.StatusCode, "Response code didn't match expected")
 			// проверяем корректность полученного тела ответа, если мы его ожидаем
 			if tc.expectedBody != "" {
-				assert.JSONEq(t, tc.expectedBody, response.String())
+				assert.Regexp(t, tc.expectedBody, response.String())
 			}
 		})
 	}
@@ -121,7 +109,7 @@ func TestGzipCompression(t *testing.T) {
 	// ожидаемое содержимое тела ответа при успешном запросе
 	successBody := `{
         "response": {
-            "text": "Извините, я пока ничего не умею"
+            "text": "Для вас нет новых сообщений."
         },
         "version": "1.0"
     }`
