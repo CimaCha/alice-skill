@@ -15,7 +15,13 @@ type Request struct {
 }
 
 type Session struct {
-	New bool `json:"new"`
+	New  bool        `json:"new"`
+	User RequestUser `json:"user"`
+}
+
+// RequestUser содержит данные об авторизованном пользователе навыка
+type RequestUser struct {
+	UserID string `json:"user_id"`
 }
 
 // SimpleUtterance описывает команду, полученную в запросе типа SimpleUtterance.
